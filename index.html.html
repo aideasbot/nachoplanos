@@ -77,7 +77,7 @@ select.tb-select:focus{border-color:var(--accent)}
 #copy-btn{left:0;top:0}
 
 /* TOOLTIP */
-#props-tooltip{position:absolute;display:none;z-index:20;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;width:216px;box-shadow:0 8px 32px rgba(0,0,0,.6);flex-direction:column;gap:7px}
+#props-tooltip{position:absolute;display:none;z-index:20;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;width:230px;box-shadow:0 8px 32px rgba(0,0,0,.6);flex-direction:column;gap:7px}
 #props-tooltip.visible{display:flex}
 .tt-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:1px}
 .tt-row{display:flex;flex-direction:column;gap:2px}
@@ -88,6 +88,10 @@ select.tb-select:focus{border-color:var(--accent)}
 .tt-row-2{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .tt-close{position:absolute;top:7px;right:9px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;font-family:monospace;transition:color .15s}
 .tt-close:hover{color:var(--danger)}
+.tt-real-block{background:rgba(200,245,90,0.07);border:1px solid rgba(200,245,90,0.25);border-radius:5px;padding:7px 8px;display:flex;flex-direction:column;gap:5px}
+.tt-real-title{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-family:var(--font-ui)}
+.tt-real-row{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.tt-real-hint{font-size:9px;color:var(--muted);margin-top:1px}
 
 /* SNAP DOT */
 #snap-dot{position:absolute;width:8px;height:8px;border:2px solid var(--accent);border-radius:50%;pointer-events:none;transform:translate(-50%,-50%);display:none;box-shadow:0 0 6px var(--accent)}
@@ -184,6 +188,7 @@ select.tb-select:focus{border-color:var(--accent)}
   <button class="tb-btn" id="btn-undo" onclick="undo()" disabled title="Deshacer (Ctrl+Z)">↩</button>
   <button class="tb-btn" id="btn-dims" onclick="toggleDims()" title="Mostrar/ocultar cotas">⊢ Cotas</button>
   <button class="tb-btn" onclick="zoomFit()" title="Ajustar vista (F)">⊡ Fit</button>
+  <button class="tb-btn" onclick="fitScaleToPage()" title="Calcular escala óptima para que los objetos llenen la hoja seleccionada">⊡ Escala a hoja</button>
   <button class="tb-btn" onclick="printPlan()" title="Imprimir">🖨</button>
   <div class="sep"></div>
   <button class="tb-btn" onclick="exportJSON()" title="Guardar como .json">💾 Guardar</button>
@@ -191,6 +196,7 @@ select.tb-select:focus{border-color:var(--accent)}
     📂 Abrir<input type="file" accept=".json" onchange="importJSON(event)" style="display:none">
   </label>
   <div class="sep"></div>
+  <button class="tb-btn" onclick="newFile()" title="Nuevo plano (borra caché)">📄 Nuevo</button>
   <button class="tb-btn danger" onclick="clearAll()" title="Limpiar todo">✕</button>
   <div class="spacer"></div>
   <span id="scale-display"></span>
@@ -232,8 +238,8 @@ select.tb-select:focus{border-color:var(--accent)}
       <div class="no-sel" id="no-sel-msg">Seleccioná un objeto para editar</div>
       <div id="props-fields" style="display:none;flex-direction:column;gap:6px">
         <div class="prop-row-2">
-          <div class="prop-row"><span class="prop-label">Ancho cm</span><input class="prop-input" id="prop-w" type="number" min="1" oninput="updateSelProp('sidebar')"></div>
-          <div class="prop-row"><span class="prop-label">Alto cm</span><input class="prop-input" id="prop-h" type="number" min="1" oninput="updateSelProp('sidebar')"></div>
+          <div class="prop-row"><span class="prop-label">Ancho cm</span><input class="prop-input" id="prop-w" type="number" min="0.01" step="0.01" oninput="updateSelProp('sidebar')"></div>
+          <div class="prop-row"><span class="prop-label">Alto cm</span><input class="prop-input" id="prop-h" type="number" min="0.01" step="0.01" oninput="updateSelProp('sidebar')"></div>
         </div>
         <div class="prop-row-2">
           <div class="prop-row"><span class="prop-label">X cm</span><input class="prop-input" id="prop-x" type="number" oninput="updateSelProp('sidebar')"></div>
@@ -259,9 +265,27 @@ select.tb-select:focus{border-color:var(--accent)}
     <div id="props-tooltip">
       <button class="tt-close" onclick="closeTooltip()">✕</button>
       <div class="tt-title" id="tt-title">Objeto</div>
+      <!-- MEDIDA REAL -->
+      <div class="tt-real-block">
+        <span class="tt-real-title">📐 Medida real</span>
+        <div class="tt-real-row">
+          <div class="tt-row">
+            <span class="tt-label">Ancho (m)</span>
+            <input class="tt-input" id="tt-rw" type="number" min="0.01" step="0.01" placeholder="ej: 3.5"
+              oninput="applyRealMeasure('w')">
+          </div>
+          <div class="tt-row">
+            <span class="tt-label">Alto (m)</span>
+            <input class="tt-input" id="tt-rh" type="number" min="0.01" step="0.01" placeholder="ej: 2"
+              oninput="applyRealMeasure('h')">
+          </div>
+        </div>
+        <span class="tt-real-hint" id="tt-real-hint">Escala actual: 1:100</span>
+      </div>
+      <!-- MEDIDA EN PLANO -->
       <div class="tt-row-2">
-        <div class="tt-row"><span class="tt-label">Ancho cm</span><input class="tt-input" id="tt-w" type="number" min="1" oninput="updateSelProp('tooltip')"></div>
-        <div class="tt-row"><span class="tt-label">Alto cm</span><input class="tt-input" id="tt-h" type="number" min="1" oninput="updateSelProp('tooltip')"></div>
+        <div class="tt-row"><span class="tt-label">Ancho plano cm</span><input class="tt-input" id="tt-w" type="number" min="1" oninput="updateSelProp('tooltip')"></div>
+        <div class="tt-row"><span class="tt-label">Alto plano cm</span><input class="tt-input" id="tt-h" type="number" min="1" oninput="updateSelProp('tooltip')"></div>
       </div>
       <div class="tt-row-2">
         <div class="tt-row"><span class="tt-label">X cm</span><input class="tt-input" id="tt-x" type="number" oninput="updateSelProp('tooltip')"></div>
@@ -325,6 +349,8 @@ const propsTooltip = document.getElementById('props-tooltip');
 // ═══════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════
+const LS_KEY = 'plano2d_state';
+let autoSaveTimer = null;
 let objects    = [];
 let selectedId = null;
 let nextId     = 1;
@@ -358,7 +384,8 @@ function saveHistory() {
   history.push(JSON.stringify(objects));
   if (history.length > MAX_HISTORY) history.shift();
   document.getElementById('btn-undo').disabled = false;
-  scheduleAutoSave();
+  // scheduleAutoSave se llama con setTimeout para evitar problemas de orden de declaración
+  setTimeout(() => { if (typeof scheduleAutoSave === 'function') scheduleAutoSave(); }, 0);
 }
 function undo() {
   if (!history.length) return;
@@ -480,7 +507,9 @@ function applyScale() {
   let info = `Escala ${scaleNum}:${scaleDen} · Grilla ${gridRealCm}cm`;
   if (pw) info += ` · Hoja ${Math.round(pw.w)}×${Math.round(pw.h)} cm`;
   document.getElementById('scale-display').textContent = info;
-  updatePropsPanel(); updateRefPanel(); render();
+  updatePropsPanel(); updateRefPanel();
+  if (objects.length) zoomFit(); else render();
+  setTimeout(() => { if (typeof scheduleAutoSave === 'function') scheduleAutoSave(); }, 0);
 }
 applyScale();
 document.getElementById('grid-real').addEventListener('change', applyScale);
@@ -581,16 +610,18 @@ function drawObjDims(obj) {
   const ppc = pxPerCm();
   const sc  = worldToScreen(obj.x, obj.y);
   const sw  = obj.w * ppc, sh = obj.h * ppc;
-  const GAP = 14; // px gap between object edge and dim line
-  const TK  = 5;  // tick length px
+  // Tamaño fijo en píxeles de pantalla — siempre legible sin importar el zoom
+  const FS  = 12;
+  const GAP = 18;
+  const TK  = 5;
   const COL = '#1a1aaa';
-  const BG  = 'rgba(255,255,255,0.88)';
+  const BG  = 'rgba(255,255,255,0.92)';
 
   ctx.save();
   ctx.strokeStyle = COL;
   ctx.fillStyle   = COL;
   ctx.lineWidth   = 1;
-  ctx.font        = 'bold 10px DM Mono,monospace';
+  ctx.font        = `bold ${FS}px DM Mono,monospace`;
   ctx.textAlign   = 'center';
   ctx.textBaseline= 'middle';
 
@@ -605,7 +636,7 @@ function drawObjDims(obj) {
   ctx.beginPath(); ctx.moveTo(x0, dimY-TK); ctx.lineTo(x0, dimY+TK); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x1, dimY-TK); ctx.lineTo(x1, dimY+TK); ctx.stroke();
   // label bg + text
-  const wLabel = Math.round(Math.abs(obj.w)) + ' cm';
+  const wLabel = +Math.abs(obj.w).toFixed(2) + ' cm';
   const wMid   = (x0+x1)/2;
   const wTw    = ctx.measureText(wLabel).width + 8;
   const wTh    = 16;
@@ -621,7 +652,7 @@ function drawObjDims(obj) {
   ctx.beginPath(); ctx.moveTo(dimX, y0); ctx.lineTo(dimX, y1); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(dimX-TK, y0); ctx.lineTo(dimX+TK, y0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(dimX-TK, y1); ctx.lineTo(dimX+TK, y1); ctx.stroke();
-  const hLabel = Math.round(Math.abs(obj.h)) + ' cm';
+  const hLabel = +Math.abs(obj.h).toFixed(2) + ' cm';
   const hMid   = (y0+y1)/2;
   const hTw    = ctx.measureText(hLabel).width + 8;
   const hTh    = 16;
@@ -790,9 +821,10 @@ function drawObject(obj, selected) {
   // dims when selected
   if (selected) {
     ctx.save();
-    ctx.fillStyle='#2255ff'; ctx.font='10px DM Mono,monospace';
+    const selFS = Math.min(Math.max(10 * viewScale, 10), 20);
+    ctx.fillStyle='#2255ff'; ctx.font=`bold ${selFS}px DM Mono,monospace`;
     ctx.textAlign='left'; ctx.textBaseline='bottom';
-    ctx.fillText(`${Math.round(Math.abs(obj.w))}×${Math.round(Math.abs(obj.h))} cm`,2,-4);
+    ctx.fillText(`${+Math.abs(obj.w).toFixed(2)}×${+Math.abs(obj.h).toFixed(2)} cm`,2,-4);
     ctx.restore();
     if (obj.type!=='line') drawHandles(sw,sh);
     else {
@@ -856,6 +888,11 @@ eyeBtn.addEventListener('click', e => {
   tooltipOpen ? openTooltip() : closeTooltip();
 });
 
+// Evitar que eventos dentro del tooltip se propaguen al canvas
+propsTooltip.addEventListener('mousedown', e => e.stopPropagation());
+propsTooltip.addEventListener('click',     e => e.stopPropagation());
+propsTooltip.addEventListener('pointerdown',e => e.stopPropagation());
+
 copyBtn.addEventListener('click', e => {
   e.stopPropagation();
   duplicateSelected();
@@ -879,20 +916,62 @@ function closeTooltip() {
 function positionTooltip() {
   const sel=getSelected(); if(!sel) return;
   const ppc=pxPerCm(); const sc=worldToScreen(sel.x,sel.y); const sw=Math.max(sel.w*ppc,0);
+  // Altura real disponible en el canvas (descontando ref-panel + statusbar)
+  const refH = document.getElementById('ref-panel').offsetHeight;
+  const stH  = document.getElementById('statusbar').offsetHeight;
+  const availH = canvas.height - refH - stH;
   let tx=sc.x+sw+38, ty=sc.y-10;
-  const tw=224, th=360;
-  if (tx+tw>canvas.width-10)  tx=sc.x-tw-14;
-  if (ty+th>canvas.height-10) ty=canvas.height-th-10;
-  if (ty<10) ty=10;
+  const tw=234;
+  // medir altura real del tooltip
+  propsTooltip.style.visibility='hidden'; propsTooltip.style.display='flex';
+  const th = propsTooltip.offsetHeight;
+  propsTooltip.style.visibility=''; propsTooltip.style.display='';
+  // ajustar X
+  if (tx+tw > canvas.width-10) tx = sc.x - tw - 14;
+  if (tx < 10) tx = 10;
+  // ajustar Y para que no se salga del área del canvas
+  if (ty + th > availH - 10) ty = availH - th - 10;
+  if (ty < 10) ty = 10;
   propsTooltip.style.left=tx+'px'; propsTooltip.style.top=ty+'px';
 }
 
 const typeNames={rect:'Rectángulo',square:'Cuadrado',circle:'Círculo',line:'Línea',door:'Puerta',stairs:'Escalera',wall:'Muro',text:'Texto'};
 
+function realToPlano(metros) {
+  // metros reales → cm en el plano según escala actual
+  // 1m real = 100cm real; en plano: cm_real / (scaleDen/scaleNum)
+  return (metros * 100) / (scaleDen / scaleNum);
+}
+function planoToReal(cmPlano) {
+  // cm en plano → metros reales
+  return (cmPlano * (scaleDen / scaleNum)) / 100;
+}
+
+function applyRealMeasure(axis) {
+  const sel = getSelected(); if (!sel) return;
+  const val = parseFloat(document.getElementById(axis === 'w' ? 'tt-rw' : 'tt-rh').value);
+  if (isNaN(val) || val <= 0) return;
+  const cmPlano = realToPlano(val);
+  if (axis === 'w') {
+    sel.w = cmPlano;
+    document.getElementById('tt-w').value = Math.round(cmPlano * 10) / 10;
+  } else {
+    sel.h = cmPlano;
+    document.getElementById('tt-h').value = Math.round(cmPlano * 10) / 10;
+  }
+  updatePropsPanel(); updateRefPanel(); render();
+}
+
 function fillTooltip(obj) {
   document.getElementById('tt-title').textContent=`${typeNames[obj.type]||obj.type} #${obj.id}`;
-  document.getElementById('tt-w').value=Math.round(Math.abs(obj.w));
-  document.getElementById('tt-h').value=Math.round(Math.abs(obj.h));
+  document.getElementById('tt-w').value=+Math.abs(obj.w).toFixed(2);
+  document.getElementById('tt-h').value=+Math.abs(obj.h).toFixed(2);
+  // fill real measures (derived from plano cm)
+  const rw = planoToReal(Math.abs(obj.w));
+  const rh = planoToReal(Math.abs(obj.h));
+  document.getElementById('tt-rw').value = Math.round(rw * 1000) / 1000;
+  document.getElementById('tt-rh').value = Math.round(rh * 1000) / 1000;
+  document.getElementById('tt-real-hint').textContent = `Escala ${scaleNum}:${scaleDen} · 1m real = ${Math.round(realToPlano(1)*10)/10}cm plano`;
   document.getElementById('tt-x').value=Math.round(obj.x);
   document.getElementById('tt-y').value=Math.round(obj.y);
   document.getElementById('tt-rot').value=obj.rotation||0;
@@ -928,8 +1007,24 @@ function duplicateSelected() {
   const sel=getSelected(); if(!sel) return;
   saveHistory();
   const id=nextId++;
-  const offset=gridRealCm;
-  const obj={...sel, id, x:sel.x+offset, y:sel.y+offset};
+  // Offset fijo de 20px en pantalla convertido a coordenadas del mundo
+  // así siempre queda cerca visualmente sin importar el zoom
+  const offsetPx = 20;
+  const offsetWorld = offsetPx / pxPerCm();
+  const obj = {
+    id,
+    type:        sel.type,
+    x:           sel.x + offsetWorld,
+    y:           sel.y + offsetWorld,
+    w:           sel.w,
+    h:           sel.h,
+    fill:        sel.fill,
+    stroke:      sel.stroke,
+    strokeWidth: sel.strokeWidth,
+    alpha:       sel.alpha,
+    rotation:    sel.rotation,
+    label:       sel.label,
+  };
   objects.push(obj);
   selectedId=id;
   closeTooltip();
@@ -1051,7 +1146,12 @@ function onMouseDown(e){
 
   if(mode==='select'){
     if(handleDimClick(sp.x, sp.y)) return;
-    if(tooltipOpen&&!propsTooltip.contains(e.target)&&e.target!==eyeBtn) closeTooltip();
+    // Solo cerrar tooltip si el click fue realmente fuera de él y de los float btns
+    if(tooltipOpen){
+      const insideTooltip = propsTooltip.contains(e.target) || e.target===eyeBtn;
+      const isFloatBtn = e.target.classList&&e.target.classList.contains('float-btn');
+      if(!insideTooltip && !isFloatBtn) closeTooltip();
+    }
     const sel=getSelected();
     // resize handle on primary selected
     if(sel&&sel.type!=='line'&&!selectedIds.length){
@@ -1214,7 +1314,7 @@ function onMouseUp(e){
 function onWheel(e){
   e.preventDefault();
   const sp=getWrapPos(e), factor=e.deltaY<0?1.1:0.9;
-  const ns=Math.min(Math.max(viewScale*factor,0.04),25);
+  const ns=Math.min(Math.max(viewScale*factor,0.0005),5000);
   viewX=sp.x-(sp.x-viewX)*(ns/viewScale);
   viewY=sp.y-(sp.y-viewY)*(ns/viewScale);
   viewScale=ns;
@@ -1264,7 +1364,7 @@ function zoomFit(){
     const pad=60;
     const scX=(canvas.width-pad*2)/(pw.w*pxPerCm()/viewScale);
     const scY=(canvas.height-pad*2)/(pw.h*pxPerCm()/viewScale);
-    viewScale=Math.min(scX,scY,4);
+    viewScale=Math.min(scX,scY);
     const ppc=pxPerCm();
     viewX=canvas.width/2-pw.w/2*ppc;
     viewY=canvas.height/2-pw.h/2*ppc;
@@ -1273,7 +1373,7 @@ function zoomFit(){
     for(const o of objects){ minX=Math.min(minX,o.x,o.x+o.w);minY=Math.min(minY,o.y,o.y+o.h);maxX=Math.max(maxX,o.x,o.x+o.w);maxY=Math.max(maxY,o.y,o.y+o.h); }
     const pad=80,rw=maxX-minX,rh=maxY-minY,base=60/gridRealCm;
     const scX=(canvas.width-pad*2)/(rw*base),scY=(canvas.height-pad*2)/(rh*base);
-    viewScale=Math.min(scX,scY,4);
+    viewScale=Math.min(scX,scY);
     const ppc=pxPerCm();
     viewX=canvas.width/2-(minX+rw/2)*ppc; viewY=canvas.height/2-(minY+rh/2)*ppc;
   } else {
@@ -1394,8 +1494,8 @@ function updatePropsPanel(){
   const noSel=document.getElementById('no-sel-msg');
   if(!sel){ fields.style.display='none';noSel.style.display='block';document.getElementById('st-dims').textContent='';return; }
   fields.style.display='flex';noSel.style.display='none';
-  document.getElementById('prop-w').value=Math.round(Math.abs(sel.w));
-  document.getElementById('prop-h').value=Math.round(Math.abs(sel.h));
+  document.getElementById('prop-w').value=+Math.abs(sel.w).toFixed(2);
+  document.getElementById('prop-h').value=+Math.abs(sel.h).toFixed(2);
   document.getElementById('prop-x').value=Math.round(sel.x);
   document.getElementById('prop-y').value=Math.round(sel.y);
   document.getElementById('prop-rot').value=sel.rotation||0;
@@ -1403,7 +1503,7 @@ function updatePropsPanel(){
   document.getElementById('prop-stroke').value=sel.stroke;
   document.getElementById('prop-sw').value=sel.strokeWidth||1.5;
   document.getElementById('prop-alpha').value=sel.alpha!==undefined?sel.alpha:0.9;
-  document.getElementById('st-dims').textContent=`${Math.round(Math.abs(sel.w))}×${Math.round(Math.abs(sel.h))} cm`;
+  document.getElementById('st-dims').textContent=`${+Math.abs(sel.w).toFixed(2)}×${+Math.abs(sel.h).toFixed(2)} cm`;
 }
 
 function updateSelProp(source){
@@ -1453,8 +1553,7 @@ function setLabel(id,val){ const o=objects.find(o=>o.id===id); if(o){o.label=val
 // ═══════════════════════════════════════════════
 // PERSISTENCIA LOCAL + EXPORT/IMPORT
 // ═══════════════════════════════════════════════
-const LS_KEY = 'plano2d_state';
-let autoSaveTimer = null;
+// LS_KEY y autoSaveTimer declarados arriba
 
 function getProjectState() {
   return {
@@ -1469,26 +1568,6 @@ function getProjectState() {
   };
 }
 
-function applyProjectState(state) {
-  objects    = state.objects   || [];
-  nextId     = state.nextId    || (objects.reduce((m,o)=>Math.max(m,o.id),0)+1);
-  scaleNum   = state.scaleNum  || 1;
-  scaleDen   = state.scaleDen  || 100;
-  gridRealCm = state.gridRealCm|| 50;
-  document.getElementById('scale-num').value  = scaleNum;
-  document.getElementById('scale-den').value  = scaleDen;
-  document.getElementById('grid-real').value  = gridRealCm;
-  if (state.paper) {
-    document.getElementById('paper-sel').value = state.paper;
-    onPaperChange();
-  }
-  if (state.paperCW) document.getElementById('paper-cw').value = state.paperCW;
-  if (state.paperCH) document.getElementById('paper-ch').value = state.paperCH;
-  if (state.viewX !== undefined) { viewX=state.viewX; viewY=state.viewY; viewScale=state.viewScale||1; }
-  applyScale();
-  updatePropsPanel(); updateRefPanel(); render();
-}
-
 // ── Autoguardado ──────────────────────────────
 function scheduleAutoSave() {
   clearTimeout(autoSaveTimer);
@@ -1498,7 +1577,7 @@ function scheduleAutoSave() {
 function autoSave() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(getProjectState()));
-    showSaveIndicator('✓ Guardado automático', '#6b6b75');
+    showSaveIndicator('✓ Guardado', '#6b6b75');
   } catch(e) {
     showSaveIndicator('⚠ No se pudo guardar', '#f55a5a');
   }
@@ -1506,9 +1585,42 @@ function autoSave() {
 
 function showSaveIndicator(msg, color) {
   const el = document.getElementById('save-indicator');
+  if (!el) return;
   el.textContent = msg; el.style.color = color;
   clearTimeout(el._timer);
   el._timer = setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+// ── Aplicar estado (solo datos, sin llamar applyScale ni zoomFit) ──
+function applyProjectState(state) {
+  try {
+    objects    = Array.isArray(state.objects) ? state.objects : [];
+    nextId     = state.nextId || (objects.reduce((m,o)=>Math.max(m,o.id||0),0)+1);
+    scaleNum   = state.scaleNum  || 1;
+    scaleDen   = state.scaleDen  || 100;
+    gridRealCm = state.gridRealCm|| 50;
+    document.getElementById('scale-num').value = scaleNum;
+    document.getElementById('scale-den').value = scaleDen;
+    document.getElementById('grid-real').value = gridRealCm;
+    const paperSel = document.getElementById('paper-sel');
+    if (state.paper && paperSel) {
+      paperSel.value = state.paper;
+      const cf = document.getElementById('custom-fields');
+      if (cf) cf.style.display = state.paper === 'custom' ? 'flex' : 'none';
+    }
+    if (state.paperCW) document.getElementById('paper-cw').value = state.paperCW;
+    if (state.paperCH) document.getElementById('paper-ch').value = state.paperCH;
+    if (typeof state.viewX === 'number') {
+      viewX = state.viewX; viewY = state.viewY; viewScale = state.viewScale || 1;
+    }
+    // actualizar info de escala sin reescalar objetos
+    const pw = getPaperWorldCm();
+    let info = `Escala ${scaleNum}:${scaleDen} · Grilla ${gridRealCm}cm`;
+    if (pw) info += ` · Hoja ${Math.round(pw.w)}×${Math.round(pw.h)} cm`;
+    document.getElementById('scale-display').textContent = info;
+  } catch(e) {
+    console.error('applyProjectState error:', e);
+  }
 }
 
 function loadFromLocalStorage() {
@@ -1516,63 +1628,154 @@ function loadFromLocalStorage() {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return false;
     const state = JSON.parse(raw);
+    if (!state || !Array.isArray(state.objects)) throw new Error('inválido');
     applyProjectState(state);
-    const d = new Date(state.savedAt);
-    const fmt = d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'});
-    showSaveIndicator('✓ Recuperado del ' + fmt, '#5af5c8');
-    return true;
-  } catch(e) { return false; }
+    return state;
+  } catch(e) {
+    try { localStorage.removeItem(LS_KEY); } catch(e2) {}
+    return false;
+  }
 }
 
-// ── Export JSON ───────────────────────────────
+// ── Export JSON ──────────────────────────────
 function exportJSON() {
-  const state = getProjectState();
-  const blob  = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
-  const url   = URL.createObjectURL(blob);
-  const a     = document.createElement('a');
-  const fecha = new Date().toISOString().slice(0,10);
-  a.href = url; a.download = `plano_${fecha}.json`;
-  a.click(); URL.revokeObjectURL(url);
-  showSaveIndicator('✓ Archivo guardado', '#5af5c8');
+  try {
+    const state = getProjectState();
+    const blob  = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const url   = URL.createObjectURL(blob);
+    const a     = document.createElement('a');
+    a.href = url; a.download = `plano_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    showSaveIndicator('✓ Archivo guardado', '#5af5c8');
+  } catch(e) { alert('Error al exportar: ' + e.message); }
 }
 
-// ── Import JSON ───────────────────────────────
+// ── Import JSON ──────────────────────────────
 function importJSON(event) {
   const file = event.target.files[0]; if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = ev => {
     try {
-      const state = JSON.parse(e.target.result);
-      if (!state.objects) throw new Error('Formato inválido');
+      const state = JSON.parse(ev.target.result);
+      if (!Array.isArray(state.objects)) throw new Error('Formato inválido');
       saveHistory();
       applyProjectState(state);
-      showSaveIndicator('✓ Plano cargado: ' + file.name, '#5af5c8');
-      autoSave();
-    } catch(err) {
-      alert('Error al leer el archivo: ' + err.message);
-    }
+      updatePropsPanel(); updateRefPanel();
+      setTimeout(zoomFit, 50);
+      showSaveIndicator('✓ Cargado: ' + file.name, '#5af5c8');
+      setTimeout(scheduleAutoSave, 0);
+    } catch(err) { alert('Error al leer el archivo: ' + err.message); }
   };
   reader.readAsText(file);
-  event.target.value = ''; // reset input
+  event.target.value = '';
 }
 
-// ── Hook autoguardado en todas las operaciones que modifican estado ──
-const _origSaveHistory = saveHistory;
+// ── Nuevo archivo ────────────────────────────
+function newFile() {
+  if (objects.length && !confirm('¿Empezar un plano nuevo? Perderás el trabajo no guardado.')) return;
+  try { localStorage.removeItem(LS_KEY); } catch(e) {}
+  objects = []; selectedId = null; selectedIds = [];
+  history = []; nextId = 1; colorIdx = 0;
+  viewX = 0; viewY = 0; viewScale = 1;
+  closeTooltip();
+  document.getElementById('btn-undo').disabled = true;
+  updatePropsPanel(); updateRefPanel();
+  setTimeout(zoomFit, 50);
+  showSaveIndicator('📄 Plano nuevo', '#5af5c8');
+}
+
+// ═══════════════════════════════════════════════
+// AJUSTAR ESCALA A HOJA
+// ═══════════════════════════════════════════════
+function fitScaleToPage() {
+  if (!objects.length) { alert('No hay objetos en el plano.'); return; }
+
+  const pmm = getPaperMm();
+  if (!pmm) { alert('Seleccioná un formato de hoja primero (A4, A3, etc.).'); return; }
+
+  // Calcular bounding box de todos los objetos en cm de plano
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  for (const o of objects) {
+    minX=Math.min(minX, o.x, o.x+o.w);
+    minY=Math.min(minY, o.y, o.y+o.h);
+    maxX=Math.max(maxX, o.x, o.x+o.w);
+    maxY=Math.max(maxY, o.y, o.y+o.h);
+  }
+  const objWcm = maxX - minX; // cm en plano actual
+  const objHcm = maxY - minY;
+
+  // Medida real de los objetos (cm reales)
+  const factorActual = scaleDen / scaleNum;
+  const realW = objWcm * factorActual; // cm reales
+  const realH = objHcm * factorActual;
+
+  // Hoja disponible con 10% de margen en cada lado
+  const margin = 0.80; // 80% del papel útil
+  const hojaW = (pmm.w / 10) * margin; // cm de papel disponible
+  const hojaH = (pmm.h / 10) * margin;
+
+  // Calcular qué escala hace que los objetos llenen la hoja
+  // cm_plano = real_cm / factor → factor = real_cm / cm_plano
+  const factorW = realW / hojaW;
+  const factorH = realH / hojaH;
+  const factorNeed = Math.max(factorW, factorH); // el más restrictivo
+
+  // Redondear a escala "linda" (múltiplo de 5, 10, 25, 50, etc.)
+  const niceScales = [1,2,5,10,15,20,25,30,40,50,75,100,125,150,200,250,300,400,500,750,1000];
+  // Para escala 1:X, X = factorNeed (redondeado hacia arriba al valor lindo más cercano)
+  let bestDen = niceScales.find(s => s >= factorNeed) || Math.ceil(factorNeed / 50) * 50;
+
+  const msg = `Escala sugerida: 1:${bestDen}
+
+` +
+    `Tus objetos miden ${(realW/100).toFixed(2)}m × ${(realH/100).toFixed(2)}m reales.
+` +
+    `En la hoja ${pmm.w}×${pmm.h}mm quedarán al ${Math.round((factorNeed/bestDen)*100*margin*100)/100}% del área.
+
+` +
+    `¿Aplicar esta escala? (Las cotas seguirán mostrando las medidas reales correctas)`;
+
+  if (!confirm(msg)) return;
+
+  // Aplicar la nueva escala (reescala objetos igual que applyScale)
+  const ratio = factorActual / bestDen;
+  saveHistory();
+  for (const o of objects) { o.x*=ratio; o.y*=ratio; o.w*=ratio; o.h*=ratio; }
+  scaleNum = 1; scaleDen = bestDen;
+  document.getElementById('scale-num').value = 1;
+  document.getElementById('scale-den').value = bestDen;
+
+  const pw = getPaperWorldCm();
+  let info = `Escala 1:${bestDen} · Grilla ${gridRealCm}cm`;
+  if (pw) info += ` · Hoja ${Math.round(pw.w)}×${Math.round(pw.h)} cm`;
+  document.getElementById('scale-display').textContent = info;
+
+  updatePropsPanel(); updateRefPanel();
+  setTimeout(zoomFit, 50);
+  setTimeout(scheduleAutoSave, 100);
+}
 
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
 setMode('select');
 resizeCanvas();
-// start centered
-setTimeout(()=>{
-  const restored = loadFromLocalStorage();
-  if (!restored) {
-    viewX=canvas.width/2-100; viewY=canvas.height/2-80; zoomFit();
-  } else {
-    zoomFit();
+
+setTimeout(() => {
+  try {
+    const state = loadFromLocalStorage();
+    if (state) {
+      updatePropsPanel(); updateRefPanel();
+      const d = new Date(state.savedAt);
+      const fmt = d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+      showSaveIndicator('✓ Recuperado del ' + fmt, '#5af5c8');
+    }
+  } catch(e) {
+    try { localStorage.removeItem(LS_KEY); } catch(e2) {}
   }
-},50);
+  zoomFit();
+}, 80);
 </script>
 </body>
 </html>
